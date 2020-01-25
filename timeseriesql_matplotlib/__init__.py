@@ -8,7 +8,7 @@ from matplotlib.dates import (
     DateFormatter,
 )
 import numpy as np
-from timeseries.plot import Plot
+from timeseriesql.plot import Plot
 
 DEFAULT_FIGURE_SIZE = (20, 10)
 

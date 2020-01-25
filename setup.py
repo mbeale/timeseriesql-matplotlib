@@ -7,7 +7,7 @@ with open("README.md", "r") as fh:
 
 setup(
     name="timeseriesql-matplotlib",
-    version="0.0.1",
+    version="0.0.2",
     description="A plotting backend for the TimeSeriesQL library",
     long_description=long_description,
     long_description_content_type="text/markdown",
