@@ -119,8 +119,8 @@ plt.show()
 ### Timebox Plot
 
 ```python
-mp().line_plot(data)
-timebox_plot(data[:,0])
+mp().timebox_plot(data[:,0])
+plt.show()
 """
 the plot arguement defaults to auto but you can set a specific period
 s    - second buckets
@@ -134,6 +134,23 @@ y    - year buckets
 
 ![Timebox Plot Example](examples/timebox_plot.png?raw=true "Title")
 
+### Heatmap Plot
+
+```python
+mp().heatmap_plot(data[{'label': 'Close'}])
+plt.show()
+"""
+the plot arguement defaults to auto but you can set a specific period
+s    - second buckets
+m    - minute buckets
+h    - hour buckets
+d    - day buckets
+mth  - month buckets
+y    - year buckets
+"""
+```
+
+![Heatmap Plot Example](examples/heatmap_plot.png?raw=true "Title")
 ### Distribution Plot
 
 ```python
@@ -151,6 +168,15 @@ plt.show()
 ```
 
 ![Correlogram Plot Example](examples/correlogram_plot.png?raw=true "Title")
+
+### Lag Plot
+
+```python
+mp().lag_plot( data[{'label': 'Open'}])
+plt.show()
+```
+
+![Lag Plot Example](examples/lag_plot.png?raw=true "Title")
 
 ### Text Plot
 

@@ -8,10 +8,67 @@ from matplotlib.dates import (
     DateFormatter,
 )
 import numpy as np
+import math
 from timeseriesql.plot import Plot
 
 DEFAULT_FIGURE_SIZE = (20, 10)
 
+FIGURE_COUNTER = 1
+
+def init_ax_if_none(func):
+    def inner(*args, **kwargs):
+        if 'ax' not in kwargs or kwargs['ax'] == None:
+            global FIGURE_COUNTER
+            fig = plt.figure(FIGURE_COUNTER, figsize=DEFAULT_FIGURE_SIZE)
+            fig.autofmt_xdate()
+            ax = fig.add_subplot(111)
+            print(id(ax))
+            kwargs['ax'] = ax
+            FIGURE_COUNTER += 1
+        return func(*args, **kwargs)
+    
+    return inner
+
+def auto_plot(ts):
+    diff = ts.time[-1] - ts.time[0]
+    if diff > 31536000:
+        return "y"
+    elif diff > 2678400:
+        return "mth"
+    elif diff > 604800:
+        return "dow"
+    elif diff > 86400:
+        return "h"
+    elif diff > 3600:
+        return "m"
+    return "s"
+
+timebox_funcs = {
+    "s": ["second", 60, None],
+    "m": ["minute", 60, None],
+    "h": ["hour", 24, None],
+    "dow": ["weekday", 7, ["Mon", "Tues", "Wed", "Thu", "Fri", "Sat", "Sun"]],
+    "d": ["day", 31, None],
+    "mth": [
+        "month",
+        12,
+        [
+            "Jan",
+            "Feb",
+            "Mar",
+            "Apr",
+            "May",
+            "Jun",
+            "Jul",
+            "Aug",
+            "Sep",
+            "Oct",
+            "Nov",
+            "Dec",
+        ],
+    ],
+}
+ 
 class MatplotlibTQL(Plot):
 
     def _create_xaxis_date(self, ax, date_index):
@@ -90,6 +147,7 @@ class MatplotlibTQL(Plot):
             func(ts[:, i], ax=col, **kwargs)
 
 
+    @init_ax_if_none
     def line_plot(self, ts, ax=None, legend=True, labels=None, ylabel=None, **kwargs):
         """Plot charts using sane time series defaults with Matplotlib.
 
@@ -118,11 +176,6 @@ class MatplotlibTQL(Plot):
         ylabel = self.ylabel_func(ts) if ylabel is None else ylabel
 
         date_index = ts.time.dt
-        if ax is None:
-            fig = plt.figure(1, figsize=DEFAULT_FIGURE_SIZE)
-            fig.autofmt_xdate()
-            ax = fig.add_subplot(111)
-
         self._create_xaxis_date(ax, date_index)
         ax.set_title(self.title_func(ts), fontsize=18)
 
@@ -135,7 +188,7 @@ class MatplotlibTQL(Plot):
                 ax.legend(title="Streams", labels=labels[:5])
 
 
-    # rename to dist plot
+    @init_ax_if_none
     def dist_plot(self, ts, ax=None, percentiles=None, xlabel=None, **kwargs):
         """ 
         Create a distribution plot
@@ -161,11 +214,6 @@ class MatplotlibTQL(Plot):
         >>>
         """
         xlabel = self.xlabel_func(ts) if xlabel is None else xlabel
-
-        if ax is None:
-            fig = plt.figure(1, figsize=DEFAULT_FIGURE_SIZE)
-            fig.autofmt_xdate()
-            ax = fig.add_subplot(111)
         hist = ax.hist(ts.data.flatten(), bins="auto", rwidth=0.99)
         ax.set_title("Distribution for " + self.title_func(ts), fontsize=18)
         ax.set_ylabel("Count")
@@ -178,6 +226,7 @@ class MatplotlibTQL(Plot):
                 ax.text(x=value, y=m, s=f"p{p}")
 
 
+    @init_ax_if_none
     def stacked_plot(self, ts, ax=None, ylabel=None, **kwargs):
         """Plot stacked charts using sane time series defaults with Matplotlib.
 
@@ -200,10 +249,6 @@ class MatplotlibTQL(Plot):
         >>>
         """
         ylabel = self.ylabel_func(ts) if ylabel is None else ylabel
-        if ax is None:
-            fig = plt.figure(1, figsize=DEFAULT_FIGURE_SIZE)
-            fig.autofmt_xdate()
-            ax = fig.add_subplot(111)
         date_index = ts.time.dt
         self._create_xaxis_date(ax, date_index)
         labels = self.legend_labels_func(ts)
@@ -213,6 +258,7 @@ class MatplotlibTQL(Plot):
         ax.legend(title="Streams", labels=labels[:5])
 
 
+    @init_ax_if_none
     def timebox_plot(self, ts, ax=None, plot="auto", ylabel=None, **kwargs):
         """
         A time boxplot for time series EDA.
@@ -238,49 +284,10 @@ class MatplotlibTQL(Plot):
         ylabel = self.ylabel_func(ts) if ylabel is None else ylabel
 
         if plot == "auto":
-            diff = ts.time[-1] - ts.time[0]
-            if diff > 31536000:
-                plot = "y"
-            elif diff > 2678400:
-                plot = "mth"
-            elif diff > 604800:
-                plot = "dow"
-            elif diff > 86400:
-                plot = "h"
-            elif diff > 3600:
-                plot = "m"
-            else:
-                plot = "s"
-        if ax is None:
-            fig = plt.figure(1, figsize=DEFAULT_FIGURE_SIZE)
-            fig.autofmt_xdate()
-            ax = fig.add_subplot(111)
-        funcs = {
-            "s": ["second", 60, None],
-            "m": ["minute", 60, None],
-            "h": ["hour", 24, None],
-            "dow": ["weekday", 7, ["Mon", "Tues", "Wed", "Thu", "Fri", "Sat", "Sun"]],
-            "d": ["day", 31, None],
-            "mth": [
-                "month",
-                12,
-                [
-                    "Jan",
-                    "Feb",
-                    "Mar",
-                    "Apr",
-                    "May",
-                    "Jun",
-                    "Jul",
-                    "Aug",
-                    "Sep",
-                    "Oct",
-                    "Nov",
-                    "Dec",
-                ],
-            ],
-        }
-        func, max_size, labels = funcs[plot]
+            plot = auto_plot(ts)
+
+
+        func, max_size, labels = timebox_funcs[plot]
         dates = ts.time.dt
         if plot == "dow":  # <-----:puke:
             dates = np.array([getattr(x.tolist(), func)() for x in dates])
@@ -313,6 +320,7 @@ class MatplotlibTQL(Plot):
             ax.set_xticklabels(labels)
 
 
+    @init_ax_if_none
     def correlogram_plot(self, ts, ax=None, **kwargs):
         """Plot stacked charts using sane time series defaults with Matplotlib.
 
@@ -332,14 +340,122 @@ class MatplotlibTQL(Plot):
         correlogram_plot(ts)
         >>>
         """
-        if ax is None:
-            fig = plt.figure(1, figsize=DEFAULT_FIGURE_SIZE)
-            fig.autofmt_xdate()
-            ax = fig.add_subplot(111)
         ax.acorr(ts.data.flatten(), usevlines=True, normed=True, lw=2, **kwargs)
         ax.set_ylabel("Correlation")
         ax.set_xlabel("Lag")
 
+
+    def lag_plot(self, ts, lags=12, max_per_row=3, **kwargs):
+        """Plot lag plots
+
+        Parameters
+        ----------
+        ts: TimeSeries
+            time series to plot
+        lags: int or iterable
+            the lags to plot.  If an iterable, a custom lag configuration with be used
+        ax : matplotlib.axes.Axes
+            an Axes to plot against.  One will be created if not included
+        max_per_row : int
+            the maximum charts in a row
+
+        Returns
+        -------
+        None
+
+        Example
+        -------
+        lag_plot(ts)
+        >>>
+        """
+        if isinstance(lags, int):
+            obj = range(1, lags+1)
+        else:
+            obj = lags
+        try:
+            iter(obj)
+        except TypeError:
+            raise TypeError("Expecting lags to be either an int or an iterable")
+        
+        s = {}
+        l = len(ts)
+        for i in obj:
+            if isinstance(i, int):
+                original_slice = slice(0, -(i))
+                lag_slice = slice(i, l)
+                s[i] = [original_slice, lag_slice]
+
+        size = len(s)
+        fig, ax = plt.subplots(
+            math.ceil(size / max_per_row), max_per_row, figsize=DEFAULT_FIGURE_SIZE, sharex="col", sharey="row"
+        )
+        for index, (key, (original,compare)) in enumerate(s.items()):
+            if max_per_row == 1:
+                ax[index].scatter(ts.data[original],ts.data[compare])
+                ax[index].set_title(f"lag -{key}")
+            else:
+                ax[index // max_per_row][index % max_per_row].scatter(ts.data[original],ts.data[compare])
+                ax[index // max_per_row][index % max_per_row].set_title(f"lag -{key}")
+        
+        return None
+
+
+    @init_ax_if_none
+    def heatmap_plot(self, ts, ax=None, plot="auto", cmap="Blues", title="", ylabel=None, **kwargs):
+        """
+        A heatmap for time series EDA.
+
+        plot: string
+            options
+            -------
+            auto - find the best possible time range
+            s    - second buckets
+            m    - minute buckets
+            h    - hour buckets
+            d    - day buckets
+            mth  - month buckets
+            y    - year buckets
+        ax:  axes 
+            to use for plotting.  One is generated if not passed
+        cmap : string
+            the value to use for the coloring.  see https://matplotlib.org/tutorials/colors/colormaps.html
+        ylabel: string
+            yaxis_label
+        kwargs: kwargs
+            pass to the axes as options
+        """
+        
+        ylabel = self.ylabel_func(ts) if ylabel is None else ylabel
+
+        if plot == "auto":
+            plot = auto_plot(ts)
+
+        func, max_size, labels = timebox_funcs[plot]
+        hist, bins = np.histogram(ts)
+        
+        new_ts = np.zeros((len(bins)-1, max_size))
+        dates = ts.time.dt
+        if plot == "dow":  # <-----:puke:
+            dates = np.array([getattr(x.tolist(), func)() for x in dates])
+        else:
+            dates = np.array([getattr(x.tolist(), func) for x in dates])
+        for i in range(max_size):    
+            new_ts[:,i] = np.histogram(ts[np.argwhere(dates==i)], bins)[0]
+            
+
+        im = ax.imshow(new_ts, cmap=cmap, interpolation='nearest')
+        plt.colorbar(im, ax=ax)
+        test = ax.get_xticklabels()
+        ax.set_ylabel(ylabel)
+        ax.set_xlabel(func[0].upper() + func[1:])
+        ax.set_title(self.title_func(ts), fontsize=18)
+        if labels:
+            labels = [labels[int(x)] for x in ax.get_xticks() if x < len(labels)]
+            ax.set_xticklabels(labels)
+        ax.set_yticklabels([math.ceil(x) for x in bins])
+        return None
+    
+    @init_ax_if_none
     def text_plot(self, value, ax=None, title="", fontsize=48, thresholds=None, **kwargs):
         """ 
         Plot a single value
@@ -389,10 +505,6 @@ class MatplotlibTQL(Plot):
                     if t[2]:
                         fontcolor = t[2]
                     break
-        if ax is None:
-            fig = plt.figure(1, figsize=DEFAULT_FIGURE_SIZE)
-            fig.autofmt_xdate()
-            ax = fig.add_subplot(111)
         ax.text(0.5, 0.5, "%.2f" % (value), va="center", ha="center", fontsize=fontsize, color=fontcolor)
         ax.set_title(title)
         ax.set_facecolor(facecolor)
